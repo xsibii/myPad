@@ -4,154 +4,243 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>myPad</title>
+    <link id="favicon" rel="icon" type="image/png" href="">
+    <link id="apple-icon" rel="apple-touch-icon" href="">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
     <style>
         :root {
-            --bg: #ffffff;
-            --text: #333333;
-            --title-color: #888888;
-            --btn-bg: #333333;
-            --btn-text: #ffffff;
-            --status-color: #cccccc;
-            --qr-bg: #ffffff;
+            --bg: #ffffff; --text: #333; --title: #999;
+            --ctrl-bg: #f5f5f5; --ctrl-text: #333; --accent: #007aff;
         }
-
         [data-theme="dark"] {
-            --bg: #121212;
-            --text: #e0e0e0;
-            --title-color: #555555;
-            --btn-bg: #f0f0f0;
-            --btn-text: #121212;
-            --status-color: #444444;
-            --qr-bg: #f0f0f0;
+            --bg: #121212; --text: #e0e0e0; --title: #444;
+            --ctrl-bg: #222; --ctrl-text: #eee;
         }
 
-        body, html { margin: 0; padding: 0; height: 100%; display: flex; flex-direction: column; background: var(--bg); color: var(--text); font-family: sans-serif; transition: background 0.3s, color 0.3s; }
+        body, html { margin: 0; padding: 0; height: 100%; display: flex; flex-direction: column; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; transition: background 0.3s; overflow: hidden; }
         
         #title-input {
             width: 100%; border: none; outline: none; background: transparent;
-            padding: 15px 20px 5px 20px; font-size: 14px;
-            font-weight: bold; color: var(--title-color); text-transform: uppercase;
-            letter-spacing: 1px; box-sizing: border-box;
+            padding: 20px 25px 5px 25px; font-size: 13px; font-weight: 700;
+            color: var(--title); text-transform: uppercase; letter-spacing: 2px; box-sizing: border-box;
         }
 
         #pad {
             flex: 1; width: 100%; border: none; outline: none; background: transparent;
-            padding: 10px 20px 20px 20px; font-family: 'Courier New', monospace;
-            font-size: 18px; color: var(--text); resize: none; box-sizing: border-box;
+            padding: 10px 25px 25px 25px; font-family: 'Courier New', monospace;
+            font-size: 19px; color: var(--text); resize: none; box-sizing: border-box;
+            line-height: 1.6; transition: filter 0.3s;
         }
+        #pad.incognito { filter: blur(15px); }
 
-        /* Contenitore Bottoni */
-        .controls { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 100; }
+        /* Barra di capacità URL */
+        #cap-bar { position: fixed; top: 0; left: 0; height: 3px; background: var(--accent); width: 0%; transition: width 0.3s, background 0.3s; z-index: 1000; }
 
+        .controls { position: fixed; bottom: 25px; right: 25px; display: flex; flex-direction: column; gap: 8px; z-index: 100; }
+        .row { display: flex; gap: 8px; justify-content: flex-end; }
+        
         .btn {
-            width: 45px; height: 45px; border-radius: 50%;
-            background: var(--btn-bg); color: var(--btn-text); border: none;
-            cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2); transition: transform 0.2s;
+            width: 42px; height: 42px; border-radius: 10px;
+            background: var(--ctrl-bg); color: var(--ctrl-text); border: none;
+            cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s; opacity: 0.8;
         }
-        .btn:active { transform: scale(0.9); }
+        .btn:hover { opacity: 1; transform: translateY(-2px); }
+        .btn.active { background: var(--accent); color: white; opacity: 1; }
 
         #qr-container {
-            position: fixed; bottom: 130px; right: 20px;
-            background: var(--qr-bg); padding: 15px; border-radius: 8px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.3); display: none; text-align: center; z-index: 99;
+            position: fixed; bottom: 130px; right: 25px;
+            background: white; padding: 15px; border-radius: 12px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.2); display: none; z-index: 99;
         }
         #qr-container.show { display: block; }
-        canvas { max-width: 200px; height: auto; }
-        #status { position: fixed; bottom: 10px; left: 20px; font-size: 11px; color: var(--status-color); pointer-events: none; }
+        #status { position: fixed; bottom: 15px; left: 25px; font-size: 10px; color: var(--title); text-transform: uppercase; }
     </style>
 </head>
 <body>
 
-<input type="text" id="title-input" placeholder="TITOLO" spellcheck="false">
-<textarea id="pad" placeholder="Scrivi qui..."></textarea>
-<div id="status">Sincronizzato</div>
+<div id="cap-bar"></div>
+<input type="text" id="title-input" placeholder="Senza titolo" spellcheck="false">
+<textarea id="pad" placeholder="Inizia a scrivere..."></textarea>
+<div id="status">Pronto</div>
 
 <div id="qr-container"><canvas id="qr"></canvas></div>
 
 <div class="controls">
-    <button id="theme-btn" class="btn" title="Cambia Tema">🌓</button>
-    <button id="qr-btn" class="btn" title="Mostra QR Code">QR</button>
+    <div class="row">
+        <button id="copy-btn" class="btn" title="Copia tutto">📋</button>
+        <button id="dl-btn" class="btn" title="Scarica .txt">💾</button>
+        <button id="incognito-btn" class="btn" title="Modalità Incognito">👁️</button>
+    </div>
+    <div class="row">
+        <button id="lock-btn" class="btn" title="Cifra con Password">🔒</button>
+        <button id="theme-btn" class="btn">🌓</button>
+        <button id="qr-btn" class="btn">QR</button>
+    </div>
 </div>
 
 <script>
     const titleInput = document.getElementById('title-input');
     const pad = document.getElementById('pad');
-    const qrBtn = document.getElementById('qr-btn');
-    const themeBtn = document.getElementById('theme-btn');
-    const qrContainer = document.getElementById('qr-container');
-    const qrCanvas = document.getElementById('qr');
+    const status = document.getElementById('status');
+    const capBar = document.getElementById('cap-bar');
+    let isEncrypted = false;
+    let currentPassword = null;
 
-    const qr = new QRious({ element: qrCanvas, size: 250, level: 'L' });
+    // --- FAVICON DINAMICA (iOS/Safari friendly) ---
+    function updateFavicon(text) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 64; canvas.height = 64;
+        const ctx = canvas.getContext('2d');
+        const color = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+        
+        ctx.fillStyle = color;
+        ctx.beginPath(); ctx.roundRect(0, 0, 64, 64, 15); ctx.fill();
+        
+        ctx.fillStyle = "white";
+        ctx.font = "bold 40px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(text ? text.substring(0,1).toUpperCase() : "P", 32, 34);
+        
+        const url = canvas.toDataURL('image/png');
+        document.getElementById('favicon').href = url;
+        document.getElementById('apple-icon').href = url;
+    }
 
-    // --- LOGICA TEMA ---
-    const currentTheme = localStorage.getItem('theme') || 'light';
-    document.documentElement.setAttribute('data-theme', currentTheme);
+    // --- CRITTOGRAFIA (AES-GCM) ---
+    async function deriveKey(password, salt) {
+        const enc = new TextEncoder();
+        const baseKey = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveKey"]);
+        return crypto.subtle.deriveKey(
+            { name: "PBKDF2", salt, iterations: 100000, hash: "SHA-256" },
+            baseKey, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
+        );
+    }
 
-    themeBtn.addEventListener('click', () => {
-        let theme = document.documentElement.getAttribute('data-theme');
-        let newTheme = theme === 'light' ? 'dark' : 'light';
-        document.documentElement.setAttribute('data-theme', newTheme);
-        localStorage.setItem('theme', newTheme);
-    });
+    async function encryptData(text, password) {
+        const salt = crypto.getRandomValues(new Uint8Array(16));
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const key = await deriveKey(password, salt);
+        const encoded = new TextEncoder().encode(text);
+        const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoded);
+        
+        const combined = new Uint8Array(salt.length + iv.length + encrypted.byteLength);
+        combined.set(salt); combined.set(iv, salt.length); combined.set(new Uint8Array(encrypted), salt.length + iv.length);
+        return btoa(String.fromCharCode(...combined)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
 
-    // --- LOGICA COMPRESSIONE ---
+    async function decryptData(cipherBase64, password) {
+        try {
+            const combined = Uint8Array.from(atob(cipherBase64.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+            const salt = combined.slice(0, 16);
+            const iv = combined.slice(16, 28);
+            const data = combined.slice(28);
+            const key = await deriveKey(password, salt);
+            const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, data);
+            return new TextDecoder().decode(decrypted);
+        } catch (e) { alert("Password errata!"); return null; }
+    }
+
+    // --- COMPRESSIONE ---
     async function compress(str) {
         const bytes = new TextEncoder().encode(str);
-        const stream = new Blob([bytes]).stream();
-        const compressedStream = stream.pipeThrough(new CompressionStream('deflate'));
-        const arr = await new Response(compressedStream).arrayBuffer();
-        return btoa(String.fromCharCode(...new Uint8Array(arr)))
-            .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream('deflate'));
+        const arr = await new Response(stream).arrayBuffer();
+        return btoa(String.fromCharCode(...new Uint8Array(arr))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     }
 
     async function decompress(base64) {
         try {
             const b64 = base64.replace(/-/g, '+').replace(/_/g, '/');
             const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-            const stream = new Blob([bytes]).stream();
-            const decompressedStream = stream.pipeThrough(new DecompressionStream('deflate'));
-            return await new Response(decompressedStream).text();
+            const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate'));
+            return await new Response(stream).text();
         } catch (e) { return ""; }
     }
 
-    // --- SINCRONIZZAZIONE URL ---
-    window.addEventListener('DOMContentLoaded', async () => {
-        const hash = decodeURIComponent(window.location.hash.substring(1));
-        if (hash) {
-            const [titlePart, contentPart] = hash.split('@');
-            if (contentPart !== undefined) {
-                titleInput.value = titlePart;
-                pad.value = await decompress(contentPart);
-            } else if (titlePart) {
-                pad.value = await decompress(titlePart);
-            }
-            qr.set({ value: window.location.href });
+    // --- LOGICA UI ---
+    const update = async () => {
+        let content = pad.value;
+        const title = titleInput.value.trim();
+        updateFavicon(title);
+        
+        if (isEncrypted && currentPassword) {
+            content = "ENC:" + await encryptData(content, currentPassword);
+        } else {
+            content = await compress(content);
         }
-    });
 
-    let timeout;
-    const updateAll = () => {
-        clearTimeout(timeout);
-        timeout = setTimeout(async () => {
-            const title = titleInput.value.trim();
-            const content = pad.value;
-            if (content || title) {
-                const compressedContent = await compress(content);
-                const newHash = encodeURIComponent(title) + "@" + compressedContent;
-                window.history.replaceState(null, null, "#" + newHash);
-                qr.set({ value: window.location.href });
-            } else {
-                window.history.replaceState(null, null, window.location.pathname);
-            }
-        }, 400);
+        const hash = encodeURIComponent(title) + "|" + content;
+        window.history.replaceState(null, null, "#" + hash);
+        
+        // Capacità URL (limite prudenziale 5000)
+        const len = window.location.href.length;
+        const per = Math.min((len / 5000) * 100, 100);
+        capBar.style.width = per + "%";
+        capBar.style.background = per > 80 ? "#ff3b30" : "var(--accent)";
+        status.innerText = `Link: ${len} chars`;
+        if(window.qr) window.qr.set({ value: window.location.href });
     };
 
-    titleInput.addEventListener('input', updateAll);
-    pad.addEventListener('input', updateAll);
-    qrBtn.addEventListener('click', () => qrContainer.classList.toggle('show'));
-</script>
+    // Bottoni
+    document.getElementById('theme-btn').onclick = () => {
+        let t = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', t);
+        localStorage.setItem('theme', t);
+        updateFavicon(titleInput.value);
+    };
 
+    document.getElementById('incognito-btn').onclick = (e) => {
+        pad.classList.toggle('incognito');
+        e.target.classList.toggle('active');
+    };
+
+    document.getElementById('copy-btn').onclick = () => {
+        pad.select(); document.execCommand('copy');
+        status.innerText = "Copiato!"; setTimeout(() => update(), 2000);
+    };
+
+    document.getElementById('dl-btn').onclick = () => {
+        const blob = new Blob([pad.value], {type: 'text/plain'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = (titleInput.value || 'nota') + '.txt';
+        a.click();
+    };
+
+    document.getElementById('lock-btn').onclick = async (e) => {
+        if (!isEncrypted) {
+            const pw = prompt("Inserisci password per cifrare:");
+            if (pw) { currentPassword = pw; isEncrypted = true; e.target.classList.add('active'); update(); }
+        } else {
+            isEncrypted = false; currentPassword = null; e.target.classList.remove('active'); update();
+        }
+    };
+
+    // Avvio
+    window.addEventListener('DOMContentLoaded', async () => {
+        document.documentElement.setAttribute('data-theme', localStorage.getItem('theme') || 'light');
+        window.qr = new QRious({ element: document.getElementById('qr'), size: 250, level: 'L' });
+        
+        const hash = decodeURIComponent(window.location.hash.substring(1));
+        if (hash) {
+            const [t, c] = hash.split('|');
+            titleInput.value = t || "";
+            if (c && c.startsWith("ENC:")) {
+                const pw = prompt("Nota criptata. Inserisci password:");
+                const dec = await decryptData(c.replace("ENC:", ""), pw);
+                if (dec !== null) { pad.value = dec; isEncrypted = true; currentPassword = pw; document.getElementById('lock-btn').classList.add('active'); }
+            } else if (c) {
+                pad.value = await decompress(c);
+            }
+        }
+        update();
+    });
+
+    titleInput.oninput = update;
+    pad.oninput = update;
+    document.getElementById('qr-btn').onclick = () => document.getElementById('qr-container').classList.toggle('show');
+</script>
 </body>
 </html>
