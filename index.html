@@ -6,63 +6,97 @@
     <title>myPad</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; display: flex; flex-direction: column; background: #fff; font-family: sans-serif; }
+        :root {
+            --bg: #ffffff;
+            --text: #333333;
+            --title-color: #888888;
+            --btn-bg: #333333;
+            --btn-text: #ffffff;
+            --status-color: #cccccc;
+            --qr-bg: #ffffff;
+        }
+
+        [data-theme="dark"] {
+            --bg: #121212;
+            --text: #e0e0e0;
+            --title-color: #555555;
+            --btn-bg: #f0f0f0;
+            --btn-text: #121212;
+            --status-color: #444444;
+            --qr-bg: #f0f0f0;
+        }
+
+        body, html { margin: 0; padding: 0; height: 100%; display: flex; flex-direction: column; background: var(--bg); color: var(--text); font-family: sans-serif; transition: background 0.3s, color 0.3s; }
         
-        /* Input del Titolo: sottile e minimale */
         #title-input {
-            width: 100%; border: none; outline: none;
+            width: 100%; border: none; outline: none; background: transparent;
             padding: 15px 20px 5px 20px; font-size: 14px;
-            font-weight: bold; color: #888; text-transform: uppercase;
+            font-weight: bold; color: var(--title-color); text-transform: uppercase;
             letter-spacing: 1px; box-sizing: border-box;
         }
-        #title-input:focus { color: #000; }
 
-        /* Area di testo principale */
         #pad {
-            flex: 1; width: 100%; border: none; outline: none;
+            flex: 1; width: 100%; border: none; outline: none; background: transparent;
             padding: 10px 20px 20px 20px; font-family: 'Courier New', monospace;
-            font-size: 18px; resize: none; box-sizing: border-box;
+            font-size: 18px; color: var(--text); resize: none; box-sizing: border-box;
         }
 
-        #qr-btn {
-            position: fixed; bottom: 20px; right: 20px;
+        /* Contenitore Bottoni */
+        .controls { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 100; }
+
+        .btn {
             width: 45px; height: 45px; border-radius: 50%;
-            background: #333; color: white; border: none;
-            cursor: pointer; font-size: 18px; z-index: 100;
-            display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            background: var(--btn-bg); color: var(--btn-text); border: none;
+            cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2); transition: transform 0.2s;
         }
+        .btn:active { transform: scale(0.9); }
 
         #qr-container {
-            position: fixed; bottom: 80px; right: 20px;
-            background: white; padding: 15px; border: 1px solid #ddd;
-            border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-            display: none; text-align: center; z-index: 99;
+            position: fixed; bottom: 130px; right: 20px;
+            background: var(--qr-bg); padding: 15px; border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3); display: none; text-align: center; z-index: 99;
         }
         #qr-container.show { display: block; }
         canvas { max-width: 200px; height: auto; }
-        #status { position: fixed; bottom: 10px; left: 20px; font-size: 11px; color: #ccc; pointer-events: none; }
+        #status { position: fixed; bottom: 10px; left: 20px; font-size: 11px; color: var(--status-color); pointer-events: none; }
     </style>
 </head>
 <body>
 
-<input type="text" id="title-input" placeholder="Titolo" spellcheck="false">
-<textarea id="pad" placeholder="Inizia a scrivere..."></textarea>
+<input type="text" id="title-input" placeholder="TITOLO" spellcheck="false">
+<textarea id="pad" placeholder="Scrivi qui..."></textarea>
 <div id="status">Sincronizzato</div>
 
-<button id="qr-btn">QR</button>
 <div id="qr-container"><canvas id="qr"></canvas></div>
+
+<div class="controls">
+    <button id="theme-btn" class="btn" title="Cambia Tema">🌓</button>
+    <button id="qr-btn" class="btn" title="Mostra QR Code">QR</button>
+</div>
 
 <script>
     const titleInput = document.getElementById('title-input');
     const pad = document.getElementById('pad');
     const qrBtn = document.getElementById('qr-btn');
+    const themeBtn = document.getElementById('theme-btn');
     const qrContainer = document.getElementById('qr-container');
     const qrCanvas = document.getElementById('qr');
 
     const qr = new QRious({ element: qrCanvas, size: 250, level: 'L' });
 
-    // Compressione
+    // --- LOGICA TEMA ---
+    const currentTheme = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', currentTheme);
+
+    themeBtn.addEventListener('click', () => {
+        let theme = document.documentElement.getAttribute('data-theme');
+        let newTheme = theme === 'light' ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', newTheme);
+        localStorage.setItem('theme', newTheme);
+    });
+
+    // --- LOGICA COMPRESSIONE ---
     async function compress(str) {
         const bytes = new TextEncoder().encode(str);
         const stream = new Blob([bytes]).stream();
@@ -72,7 +106,6 @@
             .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     }
 
-    // Decompressione
     async function decompress(base64) {
         try {
             const b64 = base64.replace(/-/g, '+').replace(/_/g, '/');
@@ -83,34 +116,30 @@
         } catch (e) { return ""; }
     }
 
-    // Gestione URL (Caricamento)
+    // --- SINCRONIZZAZIONE URL ---
     window.addEventListener('DOMContentLoaded', async () => {
         const hash = decodeURIComponent(window.location.hash.substring(1));
         if (hash) {
-            const [titlePart, contentPart] = hash.split('|');
-            // Se c'è un separatore |, il primo è il titolo. Altrimenti tutto è contenuto.
+            const [titlePart, contentPart] = hash.split('@');
             if (contentPart !== undefined) {
                 titleInput.value = titlePart;
                 pad.value = await decompress(contentPart);
-            } else {
+            } else if (titlePart) {
                 pad.value = await decompress(titlePart);
             }
             qr.set({ value: window.location.href });
         }
     });
 
-    // Salvataggio e aggiornamento URL
     let timeout;
     const updateAll = () => {
         clearTimeout(timeout);
         timeout = setTimeout(async () => {
             const title = titleInput.value.trim();
             const content = pad.value;
-            
             if (content || title) {
                 const compressedContent = await compress(content);
-                // Il titolo viene lasciato leggibile (URL encoded)
-                const newHash = encodeURIComponent(title) + "|" + compressedContent;
+                const newHash = encodeURIComponent(title) + "@" + compressedContent;
                 window.history.replaceState(null, null, "#" + newHash);
                 qr.set({ value: window.location.href });
             } else {
